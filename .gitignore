@@ -1,0 +1,8 @@
+﻿.venv312/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+server_stderr.log
+report.json
+.env

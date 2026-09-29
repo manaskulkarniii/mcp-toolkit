@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MCP Security Toolkit</title>
+<style>
+  :root {
+    --bg: #0b0d12; --panel: #12141d; --panel-2: #171a26; --border: #232739; --border-soft: #1c2030;
+    --text: #eef0f7; --muted: #8b91a8; --muted-2: #565c74;
+    --critical: #d03b3b; --high: #ec835a; --medium: #fab219; --low: #0ca30c;
+    --accent: #6d8dff; --accent-2: #8f6bff;
+  }
+  * { box-sizing: border-box; }
+
+  html { background: var(--bg); }
+
+  body {
+    background: radial-gradient(1200px 600px at 10% -10%, #161a2e 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 40px 24px 80px;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* subtle dot-grid texture so the dark surface doesn't read flat */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: -4px -4px;
+    -webkit-mask-image: radial-gradient(900px 500px at 50% 0%, #000 0%, transparent 75%);
+    mask-image: radial-gradient(900px 500px at 50% 0%, #000 0%, transparent 75%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* thin gradient accent pinned to the very top of the viewport */
+  .top-accent {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--low));
+    z-index: 2;
+  }
+
+  .container { max-width: 880px; margin: 0 auto; position: relative; z-index: 1; }
+
+  .header { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+  .header svg { flex-shrink: 0; }
+  h1 { font-size: 24px; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+  .subtitle { color: var(--muted); margin: 2px 0 32px 46px; font-size: 14px; }
+
+  .panel {
+    background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-bottom: 22px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset, 0 8px 24px rgba(0,0,0,0.25);
+  }
+
+  label { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.04em; }
+  select, input[type=text] {
+    width: 100%;
+    padding: 11px 14px;
+    background: #0d0f16;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 16px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  select:focus, input[type=text]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(109,141,255,0.18);
+  }
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: white;
+    border: none;
+    padding: 11px 22px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+    box-shadow: 0 4px 14px rgba(109,141,255,0.25);
+  }
+  button:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(109,141,255,0.35); }
+  button:active { transform: translateY(0); }
+  button svg { flex-shrink: 0; }
+
+  .error {
+    background: rgba(208,59,59,0.1);
+    border: 1px solid rgba(208,59,59,0.4);
+    color: #ff9a9a;
+    padding: 14px 18px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+
+  .results-meta { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 16px; }
+  .target-line { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
+  .target-line code { color: var(--text); background: #0d0f16; padding: 2px 7px; border-radius: 5px; }
+  .scan-time { font-size: 12px; color: var(--muted-2); margin-top: 4px; margin-left: 21px; }
+
+  /* stat tiles */
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 22px; }
+  .stat-tile {
+    background: #0d0f16;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .stat-tile .icon { flex-shrink: 0; }
+  .stat-tile .num { font-size: 22px; font-weight: 700; line-height: 1; }
+  .stat-tile .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 3px; }
+  .stat-tile.critical .num { color: var(--critical); } .stat-tile.high .num { color: var(--high); }
+  .stat-tile.medium .num { color: var(--medium); } .stat-tile.low .num { color: var(--low); }
+
+  .finding {
+    position: relative;
+    border: 1px solid var(--border-soft);
+    background: #0d0f16;
+    border-radius: 10px;
+    padding: 16px 18px 16px 20px;
+    margin-bottom: 14px;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+    opacity: 0;
+    animation: rise 0.35s ease forwards;
+  }
+  .finding:hover { transform: translateY(-2px); border-color: var(--border); }
+  .finding::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px; }
+  .finding.critical::before { background: var(--critical); } .finding.high::before { background: var(--high); }
+  .finding.medium::before { background: var(--medium); } .finding.low::before { background: var(--low); }
+  .finding:nth-child(1) { animation-delay: 0.02s; } .finding:nth-child(2) { animation-delay: 0.06s; }
+  .finding:nth-child(3) { animation-delay: 0.10s; } .finding:nth-child(4) { animation-delay: 0.14s; }
+  .finding:nth-child(5) { animation-delay: 0.18s; } .finding:nth-child(n+6) { animation-delay: 0.22s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .finding-top { display: flex; align-items: center; gap: 9px; margin-bottom: 4px; flex-wrap: wrap; }
+  .finding-top .icon { flex-shrink: 0; }
+  .badge { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .badge.critical { background: rgba(208,59,59,0.16); color: var(--critical); }
+  .badge.high { background: rgba(236,131,90,0.16); color: var(--high); }
+  .badge.medium { background: rgba(250,178,25,0.16); color: var(--medium); }
+  .badge.low { background: rgba(12,163,12,0.16); color: var(--low); }
+  .finding-tool { font-weight: 600; font-size: 14.5px; }
+  .finding-check { color: var(--muted-2); font-size: 11.5px; margin-left: auto; font-family: monospace; }
+  .finding-reason { margin: 8px 0 10px; font-size: 13.5px; line-height: 1.5; color: #d3d6e3; }
+  .finding-fix { font-size: 12.5px; color: var(--muted); line-height: 1.5; padding-top: 8px; border-top: 1px dashed var(--border-soft); }
+  .finding-fix b { color: var(--low); }
+
+  .empty-state, .no-findings { text-align: center; padding: 52px 20px; color: var(--muted); }
+  .empty-state svg { opacity: 0.5; margin-bottom: 14px; }
+  .empty-state .big { font-size: 15px; margin-bottom: 4px; color: var(--text); }
+  .no-findings { color: var(--low); font-weight: 600; }
+  .no-findings svg { display: block; margin: 0 auto 10px; }
+</style>
+</head>
+<body>
+<div class="top-accent"></div>
+<div class="container">
+  <div class="header">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2L4 5v6c0 5 3.4 8.7 8 9.9 4.6-1.2 8-4.9 8-9.9V5l-8-3z" fill="url(#g)" stroke="#3a4166" stroke-width="0.5"/>
+      <path d="M9 12l2 2 4-4.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <defs><linearGradient id="g" x1="4" y1="2" x2="20" y2="22"><stop stop-color="#6d8dff"/><stop offset="1" stop-color="#8f6bff"/></linearGradient></defs>
+    </svg>
+    <h1>MCP Security Toolkit</h1>
+  </div>
+  <p class="subtitle">Runtime scanner dashboard</p>
+
+  <div class="panel">
+    <form method="POST">
+      <label for="server_select">Quick pick: test-range server</label>
+      <select id="server_select" onchange="document.getElementById('script_path').value=this.value">
+        <option value="">-- choose a server --</option>
+        {% for s in servers %}
+          <option value="{{ s }}" {% if s == selected_path %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="script_path">Or enter any server script path</label>
+      <input type="text" id="script_path" name="script_path" value="{{ selected_path }}" placeholder="test-range\vuln_tool\server.py">
+
+      <button type="submit">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 3l16 9-16 9V3z" fill="white"/></svg>
+        Run Scan
+      </button>
+    </form>
+  </div>
+
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% endif %}
+
+  {% macro sev_icon(sev) %}
+    {% if sev == 'critical' %}
+      <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M7.5 2h9L22 7.5v9L16.5 22h-9L2 16.5v-9L7.5 2z" stroke="#d03b3b" stroke-width="2" stroke-linejoin="round"/><path d="M12 8v5" stroke="#d03b3b" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16.2" r="1.15" fill="#d03b3b"/></svg>
+    {% elif sev == 'high' %}
+      <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3l10 18H2L12 3z" stroke="#ec835a" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5" stroke="#ec835a" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="18" r="1.05" fill="#ec835a"/></svg>
+    {% elif sev == 'medium' %}
+      <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="5" y="5" width="14" height="14" rx="2" transform="rotate(45 12 12)" stroke="#fab219" stroke-width="2"/><path d="M12 8.7v4" stroke="#fab219" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="15.3" r="1" fill="#fab219"/></svg>
+    {% else %}
+      <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#0ca30c" stroke-width="2"/><path d="M12 8v4.5" stroke="#0ca30c" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="15.6" r="1" fill="#0ca30c"/></svg>
+    {% endif %}
+  {% endmacro %}
+
+  {% if report %}
+    <div class="panel">
+      <div class="results-meta">
+        <div>
+          <div class="target-line">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="6" rx="1.5" stroke="#8b91a8" stroke-width="1.6"/><rect x="3" y="14" width="18" height="6" rx="1.5" stroke="#8b91a8" stroke-width="1.6"/><circle cx="7" cy="7" r="0.9" fill="#8b91a8"/><circle cx="7" cy="17" r="0.9" fill="#8b91a8"/></svg>
+            Target: <code>{{ report.server }}</code>
+          </div>
+          {% if report.scanned_at %}<div class="scan-time">Scanned {{ report.scanned_at }}</div>{% endif %}
+        </div>
+      </div>
+
+      {% if report.findings %}
+        <div class="stat-row">
+          {% for sev in ["critical", "high", "medium", "low"] %}
+            {% set count = report.findings | selectattr("severity", "equalto", sev) | list | length %}
+            {% if count > 0 %}
+              <div class="stat-tile {{ sev }}">
+                {{ sev_icon(sev) }}
+                <div>
+                  <div class="num">{{ count }}</div>
+                  <div class="lbl">{{ sev }}</div>
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+
+        {% for f in report.findings %}
+          <div class="finding {{ f.severity }}">
+            <div class="finding-top">
+              {{ sev_icon(f.severity) }}
+              <span class="badge {{ f.severity }}">{{ f.severity }}</span>
+              <span class="finding-tool">{{ f.tool }}</span>
+              <span class="finding-check">{{ f.check }}</span>
+            </div>
+            <div class="finding-reason">{{ f.reason }}</div>
+            <div class="finding-fix"><b>Fix</b> &mdash; {{ f.recommendation }}</div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="no-findings">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#0ca30c" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5L16 9.5" stroke="#0ca30c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          No issues detected by current checks.
+        </div>
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="panel">
+      <div class="empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 5v6c0 5 3.4 8.7 8 9.9 4.6-1.2 8-4.9 8-9.9V5l-8-3z" stroke="#8b91a8" stroke-width="1.5"/><path d="M12 8v5" stroke="#8b91a8" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="15.8" r="1" fill="#8b91a8"/></svg>
+        <div class="big">No scan run yet</div>
+        Pick a server above and click Run Scan to see results here.
+      </div>
+    </div>
+  {% endif %}
+</div>
+</body>
+</html>
